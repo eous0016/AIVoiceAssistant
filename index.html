@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DriveAssist - AI Voice Assistant with Translation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        .listening-animation {
+            animation: pulse 1.5s infinite;
+        }
+        .command-history {
+            scrollbar-width: thin;
+            scrollbar-color: #4f46e5 #e5e7eb;
+        }
+        .command-history::-webkit-scrollbar {
+            width: 6px;
+        }
+        .command-history::-webkit-scrollbar-track {
+            background: #e5e7eb;
+        }
+        .command-history::-webkit-scrollbar-thumb {
+            background-color: #4f46e5;
+            border-radius: 3px;
+        }
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #4f46e5;
+            border-radius: 50%;
+            margin: 0 2px;
+            opacity: 0.4;
+        }
+        .typing-indicator span:nth-child(1) {
+            animation: typing 1s infinite;
+        }
+        .typing-indicator span:nth-child(2) {
+            animation: typing 1s infinite 0.2s;
+        }
+        .typing-indicator span:nth-child(3) {
+            animation: typing 1s infinite 0.4s;
+        }
+        @keyframes typing {
+            0% { opacity: 0.4; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-3px); }
+            100% { opacity: 0.4; transform: translateY(0); }
+        }
+        .message-input {
+            resize: none;
+            scrollbar-width: thin;
+            scrollbar-color: #4f46e5 #e5e7eb;
+        }
+        .message-input::-webkit-scrollbar {
+            width: 6px;
+        }
+        .message-input::-webkit-scrollbar-track {
+            background: #e5e7eb;
+        }
+        .message-input::-webkit-scrollbar-thumb {
+            background-color: #4f46e5;
+            border-radius: 3px;
+        }
+        .language-flag {
+            width: 24px;
+            height: 16px;
+            display: inline-block;
+            margin-right: 8px;
+            background-size: cover;
+            border-radius: 2px;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-bounce {
+            animation: bounce 1s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto px-4 py-8 max-w-md">
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-green-600 px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-car text-white text-xl"></i>
+                    <h1 class="text-white font-bold text-xl">Grab</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="settings-btn" class="text-white hover:text-indigo-200 transition">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <button id="help-btn" class="text-white hover:text-indigo-200 transition">
+                        <i class="fas fa-question-circle"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Status Bar -->
+            <div class="bg-green-50 px-4 py-2 flex items-center justify-between text-sm text-indigo-800">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-microphone"></i>
+                    <span id="connection-status">Ready</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span id="time-display">--:--</span>
+                    <span id="battery-status"><i class="fas fa-battery-three-quarters"></i> 78%</span>
+                    <span id="current-language" class="flex items-center">
+                        <span class="language-flag" style="background-image: url('https://flagcdn.com/w20/gb.png')"></span>
+                        <span>EN</span>
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="p-4">
+                <!-- Assistant Avatar -->
+                <div class="flex justify-center mb-6">
+                    <div id="assistant-avatar" class="relative">
+                        <div class="w-20 h-20 rounded-full bg-pink-100 flex items-center justify-center">
+                            <i class="fas fa-robot text-green-600 text-3xl"></i>
+                        </div>
+                        <div id="listening-indicator" class="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center hidden">
+                            <div class="w-3 h-3 bg-white rounded-full"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Assistant Response -->
+                <div class="bg-pink-50 rounded-xl p-4 mb-4 min-h-16">
+                    <div id="assistant-response" class="text-gray-800">
+                        <p>Hello! I'm your Driving Assistant. Say "Hey Tom" to activate me.</p>
+                    </div>
+                    <div id="typing-indicator" class="typing-indicator mt-2 hidden">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+                
+                <!-- Command History -->
+                <div class="bg-gray-50 rounded-xl p-4 mb-4 h-40 overflow-y-auto command-history">
+                    <h3 class="text-sm font-medium text-gray-500 mb-2">Recent Commands</h3>
+                    <div id="command-history" class="space-y-2">
+                        <!-- Command history items will be added here -->
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="grid grid-cols-4 gap-2 mb-4">
+                    <button class="quick-action-btn bg-blue-100 text-blue-800 hover:bg-blue-200">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>Navigate</span>
+                    </button>
+                    <button class="quick-action-btn bg-green-100 text-green-800 hover:bg-green-200">
+                        <i class="fas fa-phone"></i>
+                        <span>Call</span>
+                    </button>
+                    <button class="quick-action-btn bg-purple-100 text-purple-800 hover:bg-purple-200">
+                        <i class="fas fa-music"></i>
+                        <span>Music</span>
+                    </button>
+                    <button id="message-btn" class="quick-action-btn bg-pink-100 text-pink-800 hover:bg-pink-200">
+                        <i class="fas fa-comment-alt"></i>
+                        <span>Message</span>
+                    </button>
+                    <button id="simulate-message-btn" class="quick-action-btn bg-orange-100 text-orange-800 hover:bg-orange-200">
+                        <i class="fas fa-comment-dots"></i>
+                        <span>Simulate Message</span>
+</button>
+                </div>
+                
+                <!-- Status Indicator -->
+                <div class="flex justify-center mt-4">
+                    <div id="status-indicator" class="text-sm px-4 py-2 rounded-full bg-gray-200 text-gray-700">
+                        <i class="fas fa-microphone-slash mr-2"></i>
+                        <span>Waiting for "Hey Tom"</span>
+                    </div>
+                </div>
+                
+                <!-- Wake Word Toggle -->
+                <div class="mt-4 flex items-center justify-center">
+                    <span class="text-sm text-gray-600 mr-2">Wake word: "Hey Tom"</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="wake-word-toggle" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-blue-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Settings</h2>
+                <button id="close-settings" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Voice</label>
+                    <select class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option>Male</option>
+                        <option>Female</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Response Speed</label>
+                    <select class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option>Fast</option>
+                        <option>Normal</option>
+                        <option>Slow</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Wake Word</label>
+                    <input type="text" value="Hey Tom" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="sound-feedback" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" checked>
+                    <label for="sound-feedback" class="ml-2 block text-sm text-gray-700">Sound feedback</label>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Default Language</label>
+                    <select id="default-language" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="en">English</option>
+                        <option value="zh">Chinese</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button id="save-settings" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Help & Commands</h2>
+                <button id="close-help" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div class="p-3 bg-indigo-50 rounded-lg">
+                    <h3 class="font-medium text-indigo-800">Navigation</h3>
+                    <p class="text-sm text-gray-600">"Navigate to [destination]"</p>
+                    <p class="text-sm text-gray-600">"Find the nearest gas station"</p>
+                </div>
+                <div class="p-3 bg-green-50 rounded-lg">
+                    <h3 class="font-medium text-green-800">Communication</h3>
+                    <p class="text-sm text-gray-600">"Call [contact name]"</p>
+                    <p class="text-sm text-gray-600">"Send message to [contact]"</p>
+                    <p class="text-sm text-gray-600">"Message passenger [your message]"</p>
+                </div>
+                <div class="p-3 bg-purple-50 rounded-lg">
+                    <h3 class="font-medium text-purple-800">Media</h3>
+                    <p class="text-sm text-gray-600">"Play [song/artist]"</p>
+                    <p class="text-sm text-gray-600">"Next track" / "Previous track"</p>
+                </div>
+                <div class="p-3 bg-yellow-50 rounded-lg">
+                    <h3 class="font-medium text-yellow-800">Vehicle Info</h3>
+                    <p class="text-sm text-gray-600">"What's my fuel level?"</p>
+                    <p class="text-sm text-gray-600">"Check tire pressure"</p>
+                </div>
+                <div class="p-3 bg-red-50 rounded-lg">
+                    <h3 class="font-medium text-red-800">Translation</h3>
+                    <p class="text-sm text-gray-600">"Switch to Chinese"</p>
+                    <p class="text-sm text-gray-600">"Translate this text"</p>
+                    <p class="text-sm text-gray-600">"Read and translate file"</p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="close-help-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Got it!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Modal -->
+    <div id="message-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Message Passenger</h2>
+                <button id="close-message" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Recipient</label>
+                    <select id="message-recipient" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option>Front Passenger</option>
+                        <option>Rear Left Passenger</option>
+                        <option>Rear Right Passenger</option>
+                        <option>All Passengers</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                    <textarea id="message-content" class="message-input w-full h-32 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Type your message here..."></textarea>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="read-aloud" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" checked>
+                    <label for="read-aloud" class="ml-2 block text-sm text-gray-700">Read message aloud</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="translate-message" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="translate-message" class="ml-2 block text-sm text-gray-700">Translate to passenger's language</label>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancel-message" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button id="send-message" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Upload Modal -->
+    <div id="file-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Upload Text File</h2>
+                <button id="close-file" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Select a text file</label>
+                    <input type="file" id="file-input" accept=".txt" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="translate-file" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" checked>
+                    <label for="translate-file" class="ml-2 block text-sm text-gray-700">Auto-translate if needed</label>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancel-file" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button id="process-file" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Process</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Language settings with enhanced responses
+        const languages = {
+            'en': { 
+                name: 'English', 
+                flag: 'gb', 
+                greeting: 'Hello! I\'m your DriveAssist. May I assist you?.',
+                wakeWord: 'Hey Tom',
+                commands: {
+                    'navigate': 'Setting up navigation to downtown. The fastest route is via highway 101, taking about 25 minutes.',
+                    'call': 'Calling John Smith on mobile. Connecting now...',
+                    'music': 'Playing your driving playlist. Currently playing: "On the Road Again" by Willie Nelson.',
+                    'weather': 'Current weather is 72°F and sunny. Perfect driving conditions!',
+                    'fuel': 'Your fuel level is at 65%. The nearest gas station is 2 miles ahead.',
+                    'help': 'I can help with navigation, calls, messages, music, and vehicle information. What do you need?',
+                    'message': 'Opening message composer. Please speak your message after the beep.',
+                    'translate': 'Translating the text to English. Here is the translation: "[Simulated translation] This is the translated content."',
+                    'language': 'Switching to English. How can I help you?',
+                    'readfile': 'Opening file upload. Please select the text file you want me to read.',
+                    'default': 'I didn\'t catch that. Could you please repeat or say "help" for available commands.'
+                }
+            },
+            'zh': { 
+                name: 'Chinese', 
+                flag: 'cn', 
+                greeting: '你好！我是您的驾驶助手。说"Hey Tom"来激活我。',
+                wakeWord: 'Hey Tom',
+                commands: {
+                    'navigate': '正在设置导航到市中心。最快路线是通过101号高速公路，大约需要25分钟。',
+                    'call': '正在拨打约翰·史密斯的手机。正在连接...',
+                    'music': '正在播放您的驾驶播放列表。当前播放：威利·尼尔森的"再次上路"。',
+                    'weather': '当前天气72华氏度，晴朗。完美的驾驶条件！',
+                    'fuel': '您的燃油量为65%。最近的加油站在前方2英里处。',
+                    'help': '我可以帮助导航、打电话、发信息、播放音乐和提供车辆信息。您需要什么？',
+                    'message': '打开消息编辑器。请在哔声后说出您的消息。',
+                    'translate': '将文本翻译成中文。这是翻译内容："[模拟翻译] 这是翻译后的内容。"',
+                    'language': '切换到中文。有什么可以帮您？',
+                    'readfile': '打开文件上传。请选择您想让我阅读的文本文件。',
+                    'default': '我没有听清楚。请您重复或说"帮助"获取可用命令。'
+                }
+            },
+            'es': { 
+                name: 'Spanish', 
+                flag: 'es', 
+                greeting: '¡Hola! Soy tu DriveAssist. Di "Hey Tom" para activarme.',
+                wakeWord: 'Hey Tom',
+                commands: {
+                    'navigate': 'Configurando navegación al centro. La ruta más rápida es por la autopista 101, tardará unos 25 minutos.',
+                    'call': 'Llamando a John Smith al móvil. Conectando ahora...',
+                    'music': 'Reproduciendo tu lista de reproducción para conducir. Actualmente sonando: "On the Road Again" de Willie Nelson.',
+                    'weather': 'El clima actual es de 72°F y soleado. ¡Condiciones perfectas para conducir!',
+                    'fuel': 'Tu nivel de combustible está al 65%. La gasolinera más cercana está a 2 millas adelante.',
+                    'help': 'Puedo ayudar con navegación, llamadas, mensajes, música e información del vehículo. ¿Qué necesitas?',
+                    'message': 'Abriendo compositor de mensajes. Por favor, di tu mensaje después del pitido.',
+                    'translate': 'Traduciendo el texto al español. Aquí está la traducción: "[Traducción simulada] Este es el contenido traducido."',
+                    'language': 'Cambiando a español. ¿Cómo puedo ayudarte?',
+                    'readfile': 'Abriendo carga de archivos. Por favor, selecciona el archivo de texto que quieres que lea.',
+                    'default': 'No he entendido eso. ¿Podrías repetirlo o decir "ayuda" para ver los comandos disponibles?'
+                }
+            },
+            'fr': { 
+                name: 'French', 
+                flag: 'fr', 
+                greeting: 'Bonjour ! Je suis votre DriveAssist. Dites "Hey Tom" pour m\'activer.',
+                wakeWord: 'Hey Tom',
+                commands: {
+                    'navigate': 'Configuration de la navigation vers le centre-ville. L\'itinéraire le plus rapide est via l\'autoroute 101, environ 25 minutes.',
+                    'call': 'Appel de John Smith sur mobile. Connexion en cours...',
+                    'music': 'Lecture de votre playlist de conduite. Actuellement en lecture : "On the Road Again" de Willie Nelson.',
+                    'weather': 'Météo actuelle : 22°C et ensoleillé. Conditions de conduite parfaites !',
+                    'fuel': 'Votre niveau de carburant est à 65%. La station-service la plus proche est à 3 km devant.',
+                    'help': 'Je peux aider avec la navigation, les appels, les messages, la musique et les informations sur le véhicule. De quoi avez-vous besoin ?',
+                    'message': 'Ouverture du composeur de messages. Veuillez dicter votre message après le bip.',
+                    'translate': 'Traduction du texte en français. Voici la traduction : "[Traduction simulée] Voici le contenu traduit."',
+                    'language': 'Passage en français. Comment puis-je vous aider ?',
+                    'readfile': 'Ouverture du téléchargement de fichier. Veuillez sélectionner le fichier texte que vous souhaitez que je lise.',
+                    'default': 'Je n\'ai pas compris. Pourriez-vous répéter ou dire "aide" pour les commandes disponibles.'
+                }
+            },
+            'de': { 
+                name: 'German', 
+                flag: 'de', 
+                greeting: 'Hallo! Ich bin Ihr DriveAssist. Sagen Sie "Hey Tom", um mich zu aktivieren.',
+                wakeWord: 'Hey Tom',
+                commands: {
+                    'navigate': 'Navigation zum Stadtzentrum wird eingerichtet. Die schnellste Route führt über die Autobahn 101 und dauert etwa 25 Minuten.',
+                    'call': 'Rufe John Smith auf dem Handy an. Verbindung wird hergestellt...',
+                    'music': 'Ihre Fahr-Playlist wird abgespielt. Aktuell läuft: "On the Road Again" von Willie Nelson.',
+                    'weather': 'Aktuelles Wetter: 22°C und sonnig. Perfekte Fahrbedingungen!',
+                    'fuel': 'Ihr Kraftstoffstand beträgt 65%. Die nächste Tankstelle ist 3 km voraus.',
+                    'help': 'Ich kann bei Navigation, Anrufen, Nachrichten, Musik und Fahrzeuginformationen helfen. Was benötigen Sie?',
+                    'message': 'Nachrichten-Editor wird geöffnet. Bitte sprechen Sie Ihre Nachricht nach dem Signalton.',
+                    'translate': 'Text wird ins Deutsche übersetzt. Hier ist die Übersetzung: "[Simulierte Übersetzung] Dies ist der übersetzte Inhalt."',
+                    'language': 'Wechsel zu Deutsch. Wie kann ich Ihnen helfen?',
+                    'readfile': 'Datei-Upload wird geöffnet. Bitte wählen Sie die Textdatei aus, die ich lesen soll.',
+                    'default': 'Das habe ich nicht verstanden. Könnten Sie das wiederholen oder "Hilfe" für verfügbare Befehle sagen?'
+                }
+            }
+        };
+        
+        let currentLanguage = 'en';
+        let translationEnabled = true;
+        
+        // Update time display
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('time-display').textContent = `${hours}:${minutes}`;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Update language display
+        function updateLanguageDisplay() {
+            const lang = languages[currentLanguage];
+            document.getElementById('current-language').innerHTML = `
+                <span class="language-flag" style="background-image: url('https://flagcdn.com/w20/${lang.flag}.png')"></span>
+                <span>${lang.name.substring(0, 2).toUpperCase()}</span>
+            `;
+        }
+        
+        // Modal controls
+        document.getElementById('settings-btn').addEventListener('click', () => {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            document.getElementById('default-language').value = currentLanguage;
+        });
+
+        document.getElementById('help-btn').addEventListener('click', () => {
+            document.getElementById('help-modal').classList.remove('hidden');
+        });
+
+        document.getElementById('message-btn').addEventListener('click', () => {
+            document.getElementById('message-modal').classList.remove('hidden');
+        });
+
+        document.getElementById('close-settings').addEventListener('click', () => {
+            document.getElementById('settings-modal').classList.add('hidden');
+        });
+
+        document.getElementById('close-help').addEventListener('click', () => {
+            document.getElementById('help-modal').classList.add('hidden');
+        });
+
+        document.getElementById('close-help-btn').addEventListener('click', () => {
+            document.getElementById('help-modal').classList.add('hidden');
+        });
+
+        document.getElementById('close-message').addEventListener('click', () => {
+            document.getElementById('message-modal').classList.add('hidden');
+        });
+
+        document.getElementById('cancel-message').addEventListener('click', () => {
+            document.getElementById('message-modal').classList.add('hidden');
+        });
+
+        document.getElementById('close-file').addEventListener('click', () => {
+            document.getElementById('file-modal').classList.add('hidden');
+        });
+
+        document.getElementById('cancel-file').addEventListener('click', () => {
+            document.getElementById('file-modal').classList.add('hidden');
+        });
+
+        // Save settings
+        document.getElementById('save-settings').addEventListener('click', () => {
+            const newLanguage = document.getElementById('default-language').value;
+            if (newLanguage !== currentLanguage) {
+                currentLanguage = newLanguage;
+                updateLanguageDisplay();
+                
+                // Update greeting in new language
+                const assistantResponse = document.getElementById('assistant-response');
+                assistantResponse.innerHTML = `<p>${languages[currentLanguage].greeting}</p>`;
+                
+                // Speak the greeting in the new language
+                speakResponse(languages[currentLanguage].greeting);
+                
+                // Reinitialize recognition with new language
+                if (recognition) {
+                    recognition.stop();
+                    initSpeechRecognition();
+                }
+            }
+            document.getElementById('settings-modal').classList.add('hidden');
+        });
+
+        // Message sending functionality
+        document.getElementById('send-message').addEventListener('click', () => {
+            const recipient = document.getElementById('message-recipient').value;
+            let message = document.getElementById('message-content').value;
+            const readAloud = document.getElementById('read-aloud').checked;
+            const shouldTranslate = document.getElementById('translate-message').checked;
+            
+            if (message.trim() === '') {
+                alert('Please enter a message');
+                return;
+            }
+            
+            // Add to command history
+            const commandText = `Message to ${recipient}: ${message}`;
+            let responseText = `Message sent to ${recipient}`;
+            
+            if (shouldTranslate && currentLanguage !== 'en') {
+                // Simulate translation (in a real app, this would call a translation API)
+                responseText += ` (translated to ${languages[currentLanguage].name})`;
+                message = `[Translated to ${languages[currentLanguage].name}] ${message}`;
+            }
+            
+            addToCommandHistory(commandText, responseText);
+            
+            // Show confirmation
+            const assistantResponse = document.getElementById('assistant-response');
+            assistantResponse.innerHTML = `<p>${responseText}</p>`;
+            
+            // Read aloud if selected
+            if (readAloud && 'speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance();
+                utterance.text = `Message to ${recipient}: ${message}`;
+                utterance.lang = languages[currentLanguage].lang || 'en-US';
+                window.speechSynthesis.speak(utterance);
+            }
+            
+            // Clear and close
+            document.getElementById('message-content').value = '';
+            document.getElementById('message-modal').classList.add('hidden');
+        });
+
+        // File upload functionality
+        function showFileUpload() {
+            document.getElementById('file-modal').classList.remove('hidden');
+        }
+
+        document.getElementById('process-file').addEventListener('click', () => {
+            const fileInput = document.getElementById('file-input');
+            const shouldTranslate = document.getElementById('translate-file').checked;
+            
+            if (fileInput.files.length === 0) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const content = e.target.result;
+                processFileContent(content, shouldTranslate);
+            };
+            
+            reader.readAsText(file);
+        });
+
+        function processFileContent(content, shouldTranslate) {
+            const assistantResponse = document.getElementById('assistant-response');
+            
+            // Check if content contains Chinese characters
+            const hasChinese = /[\u3400-\u9FBF]/.test(content);
+            
+            if (hasChinese && shouldTranslate && currentLanguage !== 'zh') {
+                // Simulate translation (in a real app, this would call a translation API)
+                const translatedContent = "[Translated from Chinese]\n" + 
+                    "This is a simulated translation of the Chinese text in the file. " +
+                    "In a real application, this would be the actual translated content.";
+                
+                addToCommandHistory("Read and translate file", "File content translated from Chinese");
+                assistantResponse.innerHTML = `<p>${translatedContent}</p>`;
+                
+                // Read the translated version
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance();
+                    utterance.text = "Here's the translated content from the file: " + translatedContent;
+                    utterance.lang = languages[currentLanguage].lang || 'en-US';
+                    window.speechSynthesis.speak(utterance);
+                }
+            } else {
+                // Just display the content
+                addToCommandHistory("Read file", "Displaying file content");
+                
+                // Truncate if too long
+                const displayContent = content.length > 500 ? content.substring(0, 500) + "..." : content;
+                assistantResponse.innerHTML = `<p>${displayContent}</p>`;
+                
+                if (hasChinese && currentLanguage !== 'zh') {
+                    assistantResponse.innerHTML += `<p class="mt-2 text-sm text-indigo-600">This file contains Chinese text. Say "translate this" to get an English version.</p>`;
+                }
+                
+                // Read a summary
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance();
+                    utterance.text = "Here's the content from the file. " + 
+                        (content.length > 500 ? "The content is too long to read completely." : "");
+                    utterance.lang = languages[currentLanguage].lang || 'en-US';
+                    window.speechSynthesis.speak(utterance);
+                }
+            }
+            
+            document.getElementById('file-modal').classList.add('hidden');
+        }
+
+        // Voice control elements
+        const listeningIndicator = document.getElementById('listening-indicator');
+        const assistantResponse = document.getElementById('assistant-response');
+        const commandHistory = document.getElementById('command-history');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const statusIndicator = document.getElementById('status-indicator');
+
+        // Voice recognition variables
+        let isListening = false;
+        let wakeWordActive = true;
+        let recognition;
+        let finalTranscript = '';
+        
+        // Initialize speech recognition
+        function initSpeechRecognition() {
+            try {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                
+                // Set recognition language based on current language
+                switch(currentLanguage) {
+                    case 'zh':
+                        recognition.lang = 'zh-CN';
+                        break;
+                    case 'es':
+                        recognition.lang = 'es-ES';
+                        break;
+                    case 'fr':
+                        recognition.lang = 'fr-FR';
+                        break;
+                    case 'de':
+                        recognition.lang = 'de-DE';
+                        break;
+                    default:
+                        recognition.lang = 'en-US';
+                }
+
+                recognition.onstart = () => {
+                    console.log('Voice recognition started');
+                };
+
+                recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+                    
+                    // Check for wake word in the transcript
+                    if (!isListening && wakeWordActive) {
+                        const transcript = finalTranscript + interimTranscript;
+                        const wakeWord = languages[currentLanguage].wakeWord.toLowerCase();
+                        if (transcript.toLowerCase().includes(wakeWord)) {
+                            // Wake word detected
+                            finalTranscript = '';
+                            assistantResponse.innerHTML = `<p>${languages[currentLanguage].greeting}</p>`;
+                            speakResponse(languages[currentLanguage].greeting);
+                            startListening();
+                        }
+                    }
+                    
+                    // If we're listening for commands, process them
+                    if (isListening && finalTranscript) {
+                        processVoiceCommand(finalTranscript);
+                        finalTranscript = '';
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Recognition error:', event.error);
+                    if (event.error === 'no-speech') {
+                        // If no speech detected after wake word, go back to waiting
+                        if (isListening) {
+                            assistantResponse.innerHTML = `<p>${languages[currentLanguage].commands.default}</p>`;
+                            speakResponse(languages[currentLanguage].commands.default);
+                            stopListening();
+                        }
+                    }
+                };
+
+                recognition.onend = () => {
+                    console.log('Voice recognition ended');
+                    if (isListening) {
+                        // If we were listening for commands and the session ended, restart
+                        recognition.start();
+                    }
+                };
+
+                // Start listening for wake word
+                recognition.start();
+            } catch (e) {
+                console.error('Speech recognition not supported', e);
+                assistantResponse.innerHTML = '<p class="text-red-500">Speech recognition is not supported in your browser. Please try Chrome or Edge.</p>';
+            }
+        }
+
+        // Update status indicator
+        function updateStatusIndicator() {
+            if (isListening) {
+                statusIndicator.innerHTML = `<i class="fas fa-microphone mr-2"></i><span>${languages[currentLanguage].name} - Listening for commands...</span>`;
+                statusIndicator.className = 'text-sm px-4 py-2 rounded-full bg-indigo-100 text-indigo-800';
+            } else if (wakeWordActive) {
+                statusIndicator.innerHTML = `<i class="fas fa-microphone mr-2"></i><span>Waiting for "${languages[currentLanguage].wakeWord}"</span>`;
+                statusIndicator.className = 'text-sm px-4 py-2 rounded-full bg-gray-200 text-gray-700';
+            } else {
+                statusIndicator.innerHTML = '<i class="fas fa-microphone-slash mr-2"></i><span>Wake word disabled</span>';
+                statusIndicator.className = 'text-sm px-4 py-2 rounded-full bg-gray-200 text-gray-700';
+            }
+        }
+
+        // Initialize status
+        updateStatusIndicator();
+
+        // Process voice command
+        function processVoiceCommand(command) {
+            // Show typing indicator
+            typingIndicator.classList.remove('hidden');
+            
+            // Determine response based on command
+            let responseText = languages[currentLanguage].commands.default;
+            const lowerCmd = command.toLowerCase();
+            const lang = languages[currentLanguage];
+            
+            if (lowerCmd.includes('navigate') || lowerCmd.includes('directions') || lowerCmd.includes('go to')) {
+                responseText = lang.commands.navigate;
+            } else if (lowerCmd.includes('call') || lowerCmd.includes('phone')) {
+                responseText = lang.commands.call;
+            } else if (lowerCmd.includes('play') || lowerCmd.includes('music') || lowerCmd.includes('song')) {
+                responseText = lang.commands.music;
+            } else if (lowerCmd.includes('weather')) {
+                responseText = lang.commands.weather;
+            } else if (lowerCmd.includes('fuel') || lowerCmd.includes('gas')) {
+                responseText = lang.commands.fuel;
+            } else if (lowerCmd.includes('help')) {
+                responseText = lang.commands.help;
+            } else if (lowerCmd.includes('tell the passenger') || 
+                     lowerCmd.includes('message passenger') || 
+                     lowerCmd.includes('tell passenger')) {
+                // Extract the message content
+                const messageStart = Math.max(
+                    lowerCmd.indexOf('tell the passenger') + 'tell the passenger'.length,
+                    lowerCmd.indexOf('message passenger') + 'message passenger'.length,
+                    lowerCmd.indexOf('tell passenger') + 'tell passenger'.length
+                );
+
+                const messageContent = command.substring(messageStart).trim();
+
+                if (messageContent) {
+                    // Send the message immediately
+                    sendPassengerMessage(messageContent);
+                    responseText = `Message sent to passenger: "${messageContent}"`;
+                } else {
+                    responseText = 'What would you like to tell the passenger?';
+                }
+            } else if (lowerCmd.includes('message') || lowerCmd.includes('text') || lowerCmd.includes('send')) {
+                // Handle message command
+                if (lowerCmd.includes('passenger')) {
+                    // Extract message content
+                    const messageStart = command.toLowerCase().indexOf('passenger') + 9;
+                    const messageContent = command.substring(messageStart).trim();
+                    
+                    if (messageContent) {
+                        responseText = `${lang.commands.message.split('.')[0]}: "${messageContent}"`;
+                    } else {
+                        responseText = lang.commands.message;
+                        // Open message modal
+                        setTimeout(() => {
+                            document.getElementById('message-modal').classList.remove('hidden');
+                        }, 1000);
+                    }
+                } else {
+                    responseText = 'Please specify who you want to message, like "passenger" or a contact name.';
+                }
+            } else if (lowerCmd.includes('translate') || lowerCmd.includes('translation')) {
+                responseText = lang.commands.translate;
+            } else if (lowerCmd.includes('switch to') || lowerCmd.includes('change to') || lowerCmd.includes('language')) {
+                // Handle language change
+                let newLanguage = currentLanguage;
+                
+                if (lowerCmd.includes('chinese') || lowerCmd.includes('mandarin')) {
+                    newLanguage = 'zh';
+                } else if (lowerCmd.includes('english')) {
+                    newLanguage = 'en';
+                } else if (lowerCmd.includes('spanish')) {
+                    newLanguage = 'es';
+                } else if (lowerCmd.includes('french')) {
+                    newLanguage = 'fr';
+                } else if (lowerCmd.includes('german')) {
+                    newLanguage = 'de';
+                }
+                
+                if (newLanguage !== currentLanguage) {
+                    currentLanguage = newLanguage;
+                    updateLanguageDisplay();
+                    responseText = languages[currentLanguage].commands.language;
+                    
+                    // Reinitialize recognition with new language
+                    if (recognition) {
+                        recognition.stop();
+                        initSpeechRecognition();
+                    }
+                }
+            } else if (lowerCmd.includes('read file') || lowerCmd.includes('open file')) {
+                responseText = lang.commands.readfile;
+                setTimeout(showFileUpload, 1000);
+            }
+            
+            // Add to command history
+            addToCommandHistory(command, responseText);
+            
+            // Simulate processing delay
+            setTimeout(() => {
+                typingIndicator.classList.add('hidden');
+                assistantResponse.innerHTML = `<p>${responseText}</p>`;
+                
+                // Speak the response in the current language
+                if (document.getElementById('sound-feedback').checked) {
+                    speakResponse(responseText);
+                }
+                
+                // After response, go back to listening for wake word
+                setTimeout(() => {
+                    stopListening();
+                }, 2000);
+            }, 1500);
+        }
+
+        function addToCommandHistory(command, response) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            const commandElement = document.createElement('div');
+            commandElement.className = 'bg-white p-2 rounded-lg border border-gray-200';
+            commandElement.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-800">${command}</p>
+                        <p class="text-xs text-gray-500 mt-1">${response}</p>
+                    </div>
+                    <span class="text-xs text-gray-400">${timeString}</span>
+                </div>
+            `;
+            
+            commandHistory.insertBefore(commandElement, commandHistory.firstChild);
+            
+            // Limit history to 10 items
+            if (commandHistory.children.length > 10) {
+                commandHistory.removeChild(commandHistory.lastChild);
+            }
+        }
+
+        function speakResponse(text) {
+            const utterance = new SpeechSynthesisUtterance();
+            utterance.text = text;
+            utterance.volume = 1;
+            utterance.rate = 1;
+            utterance.pitch = 1;
+            
+            // Set language for speech synthesis based on current language
+            switch(currentLanguage) {
+                case 'zh':
+                    utterance.lang = 'zh-CN';
+                    break;
+                case 'es':
+                    utterance.lang = 'es-ES';
+                    break;
+                case 'fr':
+                    utterance.lang = 'fr-FR';
+                    break;
+                case 'de':
+                    utterance.lang = 'de-DE';
+                    break;
+                default:
+                    utterance.lang = 'en-US';
+            }
+            
+            // Use the browser's speech synthesis if available
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // Start listening for commands
+        function startListening() {
+            isListening = true;
+            listeningIndicator.classList.remove('hidden');
+            assistantResponse.parentElement.classList.add('listening-animation');
+            updateStatusIndicator();
+            
+            // Clear any previous transcripts
+            finalTranscript = '';
+        }
+
+        // Stop listening for commands
+        function stopListening() {
+            isListening = false;
+            listeningIndicator.classList.add('hidden');
+            assistantResponse.parentElement.classList.remove('listening-animation');
+            updateStatusIndicator();
+        }
+
+        // Wake word detection toggle
+        document.getElementById('wake-word-toggle').addEventListener('change', function() {
+            wakeWordActive = this.checked;
+            updateStatusIndicator();
+            
+            if (wakeWordActive && recognition) {
+                recognition.start();
+            } else if (!wakeWordActive && recognition) {
+                recognition.stop();
+            }
+        });
+
+        // Initialize speech recognition when page loads
+        window.addEventListener('load', function() {
+            updateLanguageDisplay();
+            initSpeechRecognition();
+        });
+
+        // For demo purposes: simulate pressing the wake word button
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'd' && e.ctrlKey) { // Ctrl+D to simulate wake word
+                if (!isListening && wakeWordActive) {
+                    assistantResponse.innerHTML = `<p>${languages[currentLanguage].commands.language}</p>`;
+                    speakResponse(languages[currentLanguage].commands.language);
+                    startListening();
+                }
+            }
+            
+            // Ctrl+F to simulate file upload
+            if (e.key === 'f' && e.ctrlKey) {
+                showFileUpload();
+            }
+            
+            // Ctrl+L to switch language
+            if (e.key === 'l' && e.ctrlKey) {
+                const langKeys = Object.keys(languages);
+                const currentIndex = langKeys.indexOf(currentLanguage);
+                const nextIndex = (currentIndex + 1) % langKeys.length;
+                currentLanguage = langKeys[nextIndex];
+                
+                updateLanguageDisplay();
+                assistantResponse.innerHTML = `<p>${languages[currentLanguage].commands.language}</p>`;
+                speakResponse(languages[currentLanguage].commands.language);
+                
+                if (recognition) {
+                    recognition.stop();
+                    initSpeechRecognition();
+                }
+            }
+        });
+
+        // Simulate incoming message from passenger
+        document.getElementById('simulate-message-btn').addEventListener('click', () => {
+            simulateIncomingMessage();
+        });
+  
+        // Array of sample messages from passengers
+        const samplePassengerMessages = [
+            "Hello",
+            "Where are you?",
+            "Are you on the way?",
+            "Can you arrived before estimated time?",
+            "I'm in rush",
+            "Now is raining, please drive slowly",
+            "What's our estimated arrival time?"
+        ];
+  
+        function simulateIncomingMessage() {
+            // Randomly select a passenger and message
+            //const passengers = ["Front Passenger", "Rear Left Passenger", "Rear Right Passenger"];
+            //const randomPassenger = passengers[Math.floor(Math.random() * passengers.length)];
+            const randomMessage = samplePassengerMessages[Math.floor(Math.random() * samplePassengerMessages.length)];
+  
+            // Create the notification
+            const notificationText = `Incoming message from passenger: "${randomMessage}"`;
+  
+            // Add to command history
+            addToCommandHistory("Message from passenger", randomMessage);
+  
+            // Show in assistant response
+            assistantResponse.innerHTML = `<p>${notificationText}</p>`;
+  
+            // Read the message aloud
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance();
+                utterance.text = notificationText;
+                utterance.lang = languages[currentLanguage].lang || 'en-US';
+                window.speechSynthesis.speak(utterance);
+            }
+  
+            // Show visual notification
+            showMessageNotification("Message from passenger", randomMessage);
+        }
+  
+        function showMessageNotification(type, message) {
+            // Create a temporary notification element
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg border-l-4 border-orange-500 max-w-xs z-50 animate-bounce';
+            notification.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 bg-orange-100 p-2 rounded-full">
+                        <i class="fas fa-comment-dots text-orange-600"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-gray-900">${type}</h3>
+                        <p class="text-sm text-gray-500 mt-1">${message}</p>
+                    </div>
+                </div>
+            `;
+  
+            document.body.appendChild(notification);
+  
+            // Remove after 5 seconds
+            setTimeout(() => {
+                notification.classList.remove('animate-bounce');
+                notification.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 5000);
+        }
+
+        function sendPassengerMessage(message) {
+            // Add to command history
+            addToCommandHistory(`Message to passenger`, message);
+
+            // Show confirmation
+            const assistantResponse = document.getElementById('assistant-response');
+            assistantResponse.innerHTML = `<p>Message sent to passenger: "${message}"</p>`;
+
+            // Read confirmation aloud
+            if ('speechSynthesis' in window && document.getElementById('sound-feedback').checked) {
+                const utterance = new SpeechSynthesisUtterance();
+                utterance.text = `Message sent to passenger: ${message}`;
+                utterance.lang = languages[currentLanguage].lang || 'en-US';
+                window.speechSynthesis.speak(utterance);
+            }
+
+            // Show visual notification
+            showMessageNotification("Message sent to passenger", message);
+        }
+    </script>
+<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=shhhhhh28/driver-assisstant" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p><p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=shhhhhh28/driver-assisstant-no-nc" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p></body>
+</html>
