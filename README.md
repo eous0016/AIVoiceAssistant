@@ -2,6 +2,7 @@
 **Hands-Free AI Assistant for Safer Driving**
 
 [**Presentation Slides**](https://www.canva.com/design/DAGkGsRJdKk/HWq1T_-teVv-Ly74IgI35Q/edit?utm_content=DAGkGsRJdKk&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)  
+[**Prototype Demo**](https://huggingface.co/spaces/projectWE/TOM-AiVoiceAssistant)
 
 ---
 
@@ -27,7 +28,7 @@ This project leverages the power of voice recognition, natural language understa
 
 - [Hugging Face Spaces Config Reference](https://huggingface.co/docs/hub/spaces-config-reference)  
 - [Presentation Slides (Canva)](https://www.canva.com/design/DAGkGsRJdKk/HWq1T_-teVv-Ly74IgI35Q/edit?utm_content=DAGkGsRJdKk&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)  
-- [deepsite tool](https://huggingface.co/spaces/enzostvs/deepsite)
+- [Deployment Tool](https://huggingface.co/spaces/enzostvs/deepsite)
   
 ---
 
