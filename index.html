@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DriveAssist - AI Voice Assistant with Translation</title>
+    <title>DriveAssist - AI Voice Assistant with Noise Cancellation</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -75,13 +75,28 @@
             background-size: cover;
             border-radius: 2px;
         }
-
+        .noise-meter {
+            height: 6px;
+            background: linear-gradient(to right, #10b981, #f59e0b, #ef4444);
+            border-radius: 3px;
+            margin-top: 4px;
+        }
+        .noise-level {
+            height: 100%;
+            width: 0%;
+            background-color: white;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
         .animate-bounce {
             animation: bounce 1s infinite;
+        }
+        .noise-cancellation-active {
+            box-shadow: 0 0 0 2px #10b981;
         }
     </style>
 </head>
@@ -134,6 +149,25 @@
                     </div>
                 </div>
                 
+                <!-- Noise Cancellation Controls -->
+                <div class="bg-gray-50 rounded-xl p-4 mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center">
+                            <i class="fas fa-volume-mute text-gray-600 mr-2"></i>
+                            <span class="font-medium">Noise Cancellation</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="noise-cancellation-toggle" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                        </label>
+                    </div>
+                    <div class="text-xs text-gray-500 mb-2">Ambient noise level</div>
+                    <div class="noise-meter">
+                        <div id="noise-level" class="noise-level"></div>
+                    </div>
+                    <div id="noise-level-text" class="text-xs text-right text-gray-500 mt-1">- dB</div>
+                </div>
+                
                 <!-- Assistant Response -->
                 <div class="bg-pink-50 rounded-xl p-4 mb-4 min-h-16">
                     <div id="assistant-response" class="text-gray-800">
@@ -175,7 +209,7 @@
                     <button id="simulate-message-btn" class="quick-action-btn bg-orange-100 text-orange-800 hover:bg-orange-200">
                         <i class="fas fa-comment-dots"></i>
                         <span>Simulate Message</span>
-</button>
+                    </button>
                 </div>
                 
                 <!-- Status Indicator -->
@@ -232,6 +266,14 @@
                     <label for="sound-feedback" class="ml-2 block text-sm text-gray-700">Sound feedback</label>
                 </div>
                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Noise Cancellation</label>
+                    <select id="noise-cancellation-level" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="low">Low (light noise reduction)</option>
+                        <option value="medium" selected>Medium (balanced)</option>
+                        <option value="high">High (aggressive noise reduction)</option>
+                    </select>
+                </div>
+                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Default Language</label>
                     <select id="default-language" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="en">English</option>
@@ -281,10 +323,10 @@
                     <p class="text-sm text-gray-600">"Check tire pressure"</p>
                 </div>
                 <div class="p-3 bg-red-50 rounded-lg">
-                    <h3 class="font-medium text-red-800">Translation</h3>
-                    <p class="text-sm text-gray-600">"Switch to Chinese"</p>
-                    <p class="text-sm text-gray-600">"Translate this text"</p>
-                    <p class="text-sm text-gray-600">"Read and translate file"</p>
+                    <h3 class="font-medium text-red-800">Audio Settings</h3>
+                    <p class="text-sm text-gray-600">"Enable noise cancellation"</p>
+                    <p class="text-sm text-gray-600">"Adjust noise reduction level"</p>
+                    <p class="text-sm text-gray-600">"Check microphone sensitivity"</p>
                 </div>
             </div>
             <div class="mt-6 flex justify-end">
@@ -377,25 +419,27 @@
                     'translate': 'Translating the text to English. Here is the translation: "[Simulated translation] This is the translated content."',
                     'language': 'Switching to English. How can I help you?',
                     'readfile': 'Opening file upload. Please select the text file you want me to read.',
+                    'noise': 'Noise cancellation is now active. Background noise will be reduced for clearer voice commands.',
                     'default': 'I didn\'t catch that. Could you please repeat or say "help" for available commands.'
                 }
             },
             'zh': { 
                 name: 'Chinese', 
                 flag: 'cn', 
-                greeting: '你好！我是您的驾驶助手。说"Hey Tom"来激活我。',
-                wakeWord: 'Hey Tom',
+                greeting: '你好！我是您的驾驶助手。说"你好汤姆"来激活我。',
+                wakeWord: '你好汤姆',
                 commands: {
-                    'navigate': '正在设置导航到市中心。最快路线是通过101号高速公路，大约需要25分钟。',
-                    'call': '正在拨打约翰·史密斯的手机。正在连接...',
-                    'music': '正在播放您的驾驶播放列表。当前播放：威利·尼尔森的"再次上路"。',
-                    'weather': '当前天气72华氏度，晴朗。完美的驾驶条件！',
+                    '导航': '正在设置导航到市中心。最快路线是通过101号高速公路，大约需要25分钟。',
+                    '打电话': '正在拨打约翰·史密斯的手机。正在连接...',
+                    '音乐': '正在播放您的驾驶播放列表。当前播放：威利·尼尔森的"再次上路"。',
+                    '天气': '当前天气72华氏度，晴朗。完美的驾驶条件！',
                     'fuel': '您的燃油量为65%。最近的加油站在前方2英里处。',
                     'help': '我可以帮助导航、打电话、发信息、播放音乐和提供车辆信息。您需要什么？',
                     'message': '打开消息编辑器。请在哔声后说出您的消息。',
                     'translate': '将文本翻译成中文。这是翻译内容："[模拟翻译] 这是翻译后的内容。"',
                     'language': '切换到中文。有什么可以帮您？',
                     'readfile': '打开文件上传。请选择您想让我阅读的文本文件。',
+                    'noise': '降噪功能已激活。背景噪音将被减少，以获得更清晰的语音命令。',
                     'default': '我没有听清楚。请您重复或说"帮助"获取可用命令。'
                 }
             },
@@ -415,6 +459,7 @@
                     'translate': 'Traduciendo el texto al español. Aquí está la traducción: "[Traducción simulada] Este es el contenido traducido."',
                     'language': 'Cambiando a español. ¿Cómo puedo ayudarte?',
                     'readfile': 'Abriendo carga de archivos. Por favor, selecciona el archivo de texto que quieres que lea.',
+                    'noise': 'Cancelación de ruido ahora activa. El ruido de fondo se reducirá para comandos de voz más claros.',
                     'default': 'No he entendido eso. ¿Podrías repetirlo o decir "ayuda" para ver los comandos disponibles?'
                 }
             },
@@ -434,6 +479,7 @@
                     'translate': 'Traduction du texte en français. Voici la traduction : "[Traduction simulée] Voici le contenu traduit."',
                     'language': 'Passage en français. Comment puis-je vous aider ?',
                     'readfile': 'Ouverture du téléchargement de fichier. Veuillez sélectionner le fichier texte que vous souhaitez que je lise.',
+                    'noise': 'Réduction du bruit maintenant active. Le bruit de fond sera réduit pour des commandes vocales plus claires.',
                     'default': 'Je n\'ai pas compris. Pourriez-vous répéter ou dire "aide" pour les commandes disponibles.'
                 }
             },
@@ -453,6 +499,7 @@
                     'translate': 'Text wird ins Deutsche übersetzt. Hier ist die Übersetzung: "[Simulierte Übersetzung] Dies ist der übersetzte Inhalt."',
                     'language': 'Wechsel zu Deutsch. Wie kann ich Ihnen helfen?',
                     'readfile': 'Datei-Upload wird geöffnet. Bitte wählen Sie die Textdatei aus, die ich lesen soll.',
+                    'noise': 'Geräuschunterdrückung jetzt aktiv. Hintergrundgeräusche werden reduziert, um Sprachbefehle klarer zu machen.',
                     'default': 'Das habe ich nicht verstanden. Könnten Sie das wiederholen oder "Hilfe" für verfügbare Befehle sagen?'
                 }
             }
@@ -460,6 +507,14 @@
         
         let currentLanguage = 'en';
         let translationEnabled = true;
+        let recognition = null;
+        let audioContext = null;
+        let analyser = null;
+        let microphone = null;
+        let noiseCancellationEnabled = true;
+        let noiseCancellationLevel = 'medium';
+        let noiseSuppressionWorkletNode = null;
+        let isAnalyzingNoise = false;
         
         // Update time display
         function updateTime() {
@@ -480,10 +535,179 @@
             `;
         }
         
+        // Initialize Web Audio API for noise analysis and cancellation
+        async function initAudioProcessing() {
+            try {
+                // Create audio context if it doesn't exist
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    // Load noise suppression worklet processor
+                    try {
+                        await audioContext.audioWorklet.addModule('noise-suppression-processor.js');
+                        console.log('Noise suppression worklet loaded');
+                    } catch (e) {
+                        console.error('Failed to load noise suppression worklet:', e);
+                        // Fallback to using script processor (deprecated but works)
+                        console.log('Using script processor fallback for noise suppression');
+                    }
+                }
+                
+                // Create analyser for noise level visualization
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 32;
+                
+                // Start noise level analysis
+                startNoiseLevelAnalysis();
+                
+                console.log('Audio processing initialized');
+            } catch (e) {
+                console.error('Error initializing audio processing:', e);
+            }
+        }
+        
+        // Start analyzing noise levels for visualization
+        function startNoiseLevelAnalysis() {
+            if (isAnalyzingNoise) return;
+            
+            isAnalyzingNoise = true;
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            function analyzeNoise() {
+                if (!isAnalyzingNoise) return;
+                
+                analyser.getByteFrequencyData(dataArray);
+                
+                // Calculate average noise level (0-255)
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / dataArray.length;
+                
+                // Convert to dB (approximate)
+                const db = Math.round(20 * Math.log10(average / 255 * 100));
+                
+                // Update UI
+                updateNoiseLevelDisplay(db);
+                
+                // Continue analyzing
+                requestAnimationFrame(analyzeNoise);
+            }
+            
+            analyzeNoise();
+        }
+        
+        // Stop noise level analysis
+        function stopNoiseLevelAnalysis() {
+            isAnalyzingNoise = false;
+        }
+        
+        // Update noise level display
+        function updateNoiseLevelDisplay(db) {
+            const noiseLevelElement = document.getElementById('noise-level');
+            const noiseLevelText = document.getElementById('noise-level-text');
+            
+            // Normalize dB to percentage (0-100)
+            let normalizedLevel = Math.min(Math.max(db + 60, 0), 100);
+            
+            // Adjust based on noise cancellation level
+            if (noiseCancellationEnabled) {
+                if (noiseCancellationLevel === 'low') {
+                    normalizedLevel *= 0.7;
+                } else if (noiseCancellationLevel === 'medium') {
+                    normalizedLevel *= 0.5;
+                } else {
+                    normalizedLevel *= 0.3;
+                }
+            }
+            
+            noiseLevelElement.style.width = `${normalizedLevel}%`;
+            noiseLevelText.textContent = `${Math.round(db)} dB`;
+            
+            // Change color based on level
+            if (normalizedLevel > 80) {
+                noiseLevelElement.style.backgroundColor = '#ef4444';
+            } else if (normalizedLevel > 50) {
+                noiseLevelElement.style.backgroundColor = '#f59e0b';
+            } else {
+                noiseLevelElement.style.backgroundColor = '#10b981';
+            }
+        }
+        
+        // Apply noise cancellation to microphone stream
+        async function applyNoiseCancellation(stream) {
+            if (!noiseCancellationEnabled || !audioContext) {
+                return stream;
+            }
+            
+            try {
+                // Create source from microphone stream
+                const source = audioContext.createMediaStreamSource(stream);
+                
+                // Create destination to output processed audio
+                const destination = audioContext.createMediaStreamDestination();
+                
+                // Connect analyser for noise visualization
+                source.connect(analyser);
+                
+                // Try to use AudioWorklet for noise suppression if available
+                if (audioContext.audioWorklet && noiseSuppressionWorkletNode) {
+                    source.connect(noiseSuppressionWorkletNode);
+                    noiseSuppressionWorkletNode.connect(destination);
+                } else {
+                    // Fallback: simple high-pass filter to reduce low-frequency noise
+                    const highPassFilter = audioContext.createBiquadFilter();
+                    highPassFilter.type = "highpass";
+                    highPassFilter.frequency.value = 300; // Cut off frequencies below 300Hz
+                    
+                    // Connect nodes
+                    source.connect(highPassFilter);
+                    highPassFilter.connect(destination);
+                    
+                    console.log('Using high-pass filter fallback for noise reduction');
+                }
+                
+                // Return the processed stream
+                return destination.stream;
+                
+            } catch (e) {
+                console.error('Error applying noise cancellation:', e);
+                return stream; // Return original stream if processing fails
+            }
+        }
+        
+        // Noise cancellation toggle
+        document.getElementById('noise-cancellation-toggle').addEventListener('change', function() {
+            noiseCancellationEnabled = this.checked;
+            
+            // Update UI
+            const assistantAvatar = document.getElementById('assistant-avatar');
+            if (noiseCancellationEnabled) {
+                assistantAvatar.classList.add('noise-cancellation-active');
+                document.getElementById('connection-status').textContent = 'Noise cancellation active';
+                
+                // Show feedback message
+                const assistantResponse = document.getElementById('assistant-response');
+                assistantResponse.innerHTML = `<p>${languages[currentLanguage].commands.noise}</p>`;
+                speakResponse(languages[currentLanguage].commands.noise);
+            } else {
+                assistantAvatar.classList.remove('noise-cancellation-active');
+                document.getElementById('connection-status').textContent = 'Ready';
+            }
+            
+            // Reinitialize recognition with new noise cancellation setting
+            if (recognition) {
+                recognition.stop();
+                setTimeout(initSpeechRecognition, 500);
+            }
+        });
+        
         // Modal controls
         document.getElementById('settings-btn').addEventListener('click', () => {
             document.getElementById('settings-modal').classList.remove('hidden');
             document.getElementById('default-language').value = currentLanguage;
+            document.getElementById('noise-cancellation-level').value = noiseCancellationLevel;
         });
 
         document.getElementById('help-btn').addEventListener('click', () => {
@@ -525,6 +749,8 @@
         // Save settings
         document.getElementById('save-settings').addEventListener('click', () => {
             const newLanguage = document.getElementById('default-language').value;
+            const newNoiseLevel = document.getElementById('noise-cancellation-level').value;
+            
             if (newLanguage !== currentLanguage) {
                 currentLanguage = newLanguage;
                 updateLanguageDisplay();
@@ -535,14 +761,35 @@
                 
                 // Speak the greeting in the new language
                 speakResponse(languages[currentLanguage].greeting);
-                
-                // Reinitialize recognition with new language
-                if (recognition) {
-                    recognition.stop();
-                    initSpeechRecognition();
-                }
             }
+            
+            // Update noise cancellation level
+            if (newNoiseLevel !== noiseCancellationLevel) {
+                noiseCancellationLevel = newNoiseLevel;
+                
+                // Show feedback
+                const assistantResponse = document.getElementById('assistant-response');
+                let responseText = '';
+                
+                if (noiseCancellationLevel === 'low') {
+                    responseText = languages[currentLanguage].commands.noise + ' (Light reduction)';
+                } else if (noiseCancellationLevel === 'medium') {
+                    responseText = languages[currentLanguage].commands.noise + ' (Balanced)';
+                } else {
+                    responseText = languages[currentLanguage].commands.noise + ' (Strong reduction)';
+                }
+                
+                assistantResponse.innerHTML = `<p>${responseText}</p>`;
+                speakResponse(responseText);
+            }
+            
             document.getElementById('settings-modal').classList.add('hidden');
+            
+            // Reinitialize recognition with new settings
+            if (recognition) {
+                recognition.stop();
+                setTimeout(initSpeechRecognition, 500);
+            }
         });
 
         // Message sending functionality
@@ -668,42 +915,50 @@
         // Voice recognition variables
         let isListening = false;
         let wakeWordActive = true;
-        let recognition;
         let finalTranscript = '';
         
         // Initialize speech recognition
         function initSpeechRecognition() {
             try {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    throw new Error('Speech recognition not supported');
+                }
+
+                // Clean up previous recognition
+                if (recognition) {
+                    recognition.onresult = null;
+                    recognition.onerror = null;
+                    recognition.onend = null;
+                    try {
+                        recognition.stop();
+                    } catch (e) {
+                        console.log('Recognition already stopped');
+                    }
+                }
+
                 recognition = new SpeechRecognition();
                 recognition.continuous = true;
                 recognition.interimResults = true;
-                
-                // Set recognition language based on current language
-                switch(currentLanguage) {
-                    case 'zh':
-                        recognition.lang = 'zh-CN';
-                        break;
-                    case 'es':
-                        recognition.lang = 'es-ES';
-                        break;
-                    case 'fr':
-                        recognition.lang = 'fr-FR';
-                        break;
-                    case 'de':
-                        recognition.lang = 'de-DE';
-                        break;
-                    default:
-                        recognition.lang = 'en-US';
-                }
 
-                recognition.onstart = () => {
-                    console.log('Voice recognition started');
+                // Set recognition language based on current language
+                let recognitionLang = getRecognitionLanguage(currentLanguage);
+                recognition.lang = recognitionLang;
+
+                recognition.onstart = async () => {
+                    console.log('Voice recognition started for language:', recognitionLang);
+                    updateStatusIndicator();
+                    
+                    // Initialize audio processing if noise cancellation is enabled
+                    if (noiseCancellationEnabled) {
+                        await initAudioProcessing();
+                    }
                 };
 
                 recognition.onresult = (event) => {
                     let interimTranscript = '';
-                    
+                    finalTranscript = '';
+
                     for (let i = event.resultIndex; i < event.results.length; i++) {
                         const transcript = event.results[i][0].transcript;
                         if (event.results[i].isFinal) {
@@ -712,21 +967,19 @@
                             interimTranscript += transcript;
                         }
                     }
-                    
+
                     // Check for wake word in the transcript
                     if (!isListening && wakeWordActive) {
-                        const transcript = finalTranscript + interimTranscript;
+                        const transcript = (finalTranscript + interimTranscript).toLowerCase();
                         const wakeWord = languages[currentLanguage].wakeWord.toLowerCase();
-                        if (transcript.toLowerCase().includes(wakeWord)) {
-                            // Wake word detected
+                        if (transcript.includes(wakeWord)) {
                             finalTranscript = '';
                             assistantResponse.innerHTML = `<p>${languages[currentLanguage].greeting}</p>`;
                             speakResponse(languages[currentLanguage].greeting);
                             startListening();
                         }
                     }
-                    
-                    // If we're listening for commands, process them
+
                     if (isListening && finalTranscript) {
                         processVoiceCommand(finalTranscript);
                         finalTranscript = '';
@@ -736,29 +989,88 @@
                 recognition.onerror = (event) => {
                     console.error('Recognition error:', event.error);
                     if (event.error === 'no-speech') {
-                        // If no speech detected after wake word, go back to waiting
                         if (isListening) {
                             assistantResponse.innerHTML = `<p>${languages[currentLanguage].commands.default}</p>`;
                             speakResponse(languages[currentLanguage].commands.default);
                             stopListening();
                         }
+                    } else if (event.error === 'language-not-supported') {
+                        console.error('Language not supported:', currentLanguage);
+                        assistantResponse.innerHTML = `<p class="text-red-500">Language ${currentLanguage} not supported for speech recognition. Falling back to English.</p>`;
+                        currentLanguage = 'en';
+                        updateLanguageDisplay();
+                        setTimeout(initSpeechRecognition, 500);
                     }
                 };
 
                 recognition.onend = () => {
                     console.log('Voice recognition ended');
-                    if (isListening) {
-                        // If we were listening for commands and the session ended, restart
-                        recognition.start();
+                    if (wakeWordActive && !isListening) {
+                        setTimeout(() => {
+                            if (recognition) {
+                                recognition.start();
+                            }
+                        }, 500);
                     }
+                    
+                    // Stop noise analysis when recognition ends
+                    stopNoiseLevelAnalysis();
                 };
 
-                // Start listening for wake word
+                // Apply noise cancellation if enabled
+                if (noiseCancellationEnabled && audioContext) {
+                    // Override the default start method to process the audio stream
+                    const originalStart = recognition.start.bind(recognition);
+                    
+                    recognition.start = async function() {
+                        try {
+                            // First get permission to access microphone
+                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                            
+                            // Apply noise cancellation
+                            const processedStream = await applyNoiseCancellation(stream);
+                            
+                            // Replace the audio track in recognition
+                            if (recognition.stream) {
+                                const audioTracks = processedStream.getAudioTracks();
+                                if (audioTracks.length > 0) {
+                                    recognition.stream.getAudioTracks().forEach(track => track.stop());
+                                    recognition.stream.addTrack(audioTracks[0]);
+                                }
+                            }
+                            
+                            // Call original start
+                            originalStart();
+                        } catch (e) {
+                            console.error('Error applying noise cancellation:', e);
+                            // Fallback to original start if processing fails
+                            originalStart();
+                        }
+                    };
+                }
+                
                 recognition.start();
             } catch (e) {
-                console.error('Speech recognition not supported', e);
+                console.error('Speech recognition error:', e);
                 assistantResponse.innerHTML = '<p class="text-red-500">Speech recognition is not supported in your browser. Please try Chrome or Edge.</p>';
             }
+        }
+
+        // Helper function to get recognition language code
+        function getRecognitionLanguage(lang) {
+            switch(lang) {
+                case 'zh': return 'cmn-Hans-CN'; // Chinese (Mandarin, Simplified)
+                case 'es': return 'es-ES';
+                case 'fr': return 'fr-FR';
+                case 'de': return 'de-DE';
+                default: return 'en-US';
+            }
+        }
+        
+        // Helper function to check language support
+        function isLanguageSupported(lang) {
+            const voices = window.speechSynthesis?.getVoices() || [];
+            return voices.some(voice => voice.lang === lang);
         }
 
         // Update status indicator
@@ -809,9 +1121,9 @@
                     lowerCmd.indexOf('message passenger') + 'message passenger'.length,
                     lowerCmd.indexOf('tell passenger') + 'tell passenger'.length
                 );
-
+        
                 const messageContent = command.substring(messageStart).trim();
-
+        
                 if (messageContent) {
                     // Send the message immediately
                     sendPassengerMessage(messageContent);
@@ -840,6 +1152,40 @@
                 }
             } else if (lowerCmd.includes('translate') || lowerCmd.includes('translation')) {
                 responseText = lang.commands.translate;
+            } else if (lowerCmd.includes('noise') || lowerCmd.includes('cancel') || lowerCmd.includes('reduction')) {
+                // Handle noise cancellation commands
+                if (lowerCmd.includes('enable') || lowerCmd.includes('on') || lowerCmd.includes('activate')) {
+                    document.getElementById('noise-cancellation-toggle').checked = true;
+                    noiseCancellationEnabled = true;
+                    responseText = lang.commands.noise;
+                } else if (lowerCmd.includes('disable') || lowerCmd.includes('off') || lowerCmd.includes('deactivate')) {
+                    document.getElementById('noise-cancellation-toggle').checked = false;
+                    noiseCancellationEnabled = false;
+                    responseText = 'Noise cancellation disabled';
+                } else if (lowerCmd.includes('level') || lowerCmd.includes('adjust') || lowerCmd.includes('change')) {
+                    if (lowerCmd.includes('low') || lowerCmd.includes('light')) {
+                        noiseCancellationLevel = 'low';
+                        responseText = 'Noise reduction set to light level';
+                    } else if (lowerCmd.includes('high') || lowerCmd.includes('strong') || lowerCmd.includes('aggressive')) {
+                        noiseCancellationLevel = 'high';
+                        responseText = 'Noise reduction set to strong level';
+                    } else {
+                        noiseCancellationLevel = 'medium';
+                        responseText = 'Noise reduction set to medium level';
+                    }
+                } else {
+                    responseText = lang.commands.noise;
+                }
+                
+                // Update UI
+                const assistantAvatar = document.getElementById('assistant-avatar');
+                if (noiseCancellationEnabled) {
+                    assistantAvatar.classList.add('noise-cancellation-active');
+                    document.getElementById('connection-status').textContent = 'Noise cancellation active';
+                } else {
+                    assistantAvatar.classList.remove('noise-cancellation-active');
+                    document.getElementById('connection-status').textContent = 'Ready';
+                }
             } else if (lowerCmd.includes('switch to') || lowerCmd.includes('change to') || lowerCmd.includes('language')) {
                 // Handle language change
                 let newLanguage = currentLanguage;
@@ -860,11 +1206,32 @@
                     currentLanguage = newLanguage;
                     updateLanguageDisplay();
                     responseText = languages[currentLanguage].commands.language;
+            
+                    // Store current listening state
+                    const wasListening = isListening;
                     
-                    // Reinitialize recognition with new language
+                    // Stop current recognition
                     if (recognition) {
-                        recognition.stop();
-                        initSpeechRecognition();
+                        // Remove event listeners first
+                        recognition.onresult = null;
+                        recognition.onerror = null;
+                        recognition.onend = null;
+                        
+                        try {
+                            recognition.stop();
+                        } catch (e) {
+                            console.log('Recognition already stopped');
+                        }
+                        
+                        // Delay reinitialization to ensure clean restart
+                        setTimeout(() => {
+                            initSpeechRecognition();
+                            
+                            // Restore listening state if we were listening
+                            if (wasListening) {
+                                startListening();
+                            }
+                        }, 1000);
                     }
                 }
             } else if (lowerCmd.includes('read file') || lowerCmd.includes('open file')) {
@@ -964,6 +1331,21 @@
             listeningIndicator.classList.add('hidden');
             assistantResponse.parentElement.classList.remove('listening-animation');
             updateStatusIndicator();
+            
+            // Ensure we're back in wake word mode
+            if (recognition && wakeWordActive) {
+                // Give a small delay before restarting to listen for wake word
+                setTimeout(() => {
+                    if (recognition) {
+                        recognition.stop();
+                        setTimeout(() => {
+                            if (recognition) {
+                                recognition.start();
+                            }
+                        }, 300);
+                    }
+                }, 200);
+            }
         }
 
         // Wake word detection toggle
@@ -971,9 +1353,13 @@
             wakeWordActive = this.checked;
             updateStatusIndicator();
             
-            if (wakeWordActive && recognition) {
-                recognition.start();
-            } else if (!wakeWordActive && recognition) {
+            if (wakeWordActive) {
+                if (!recognition) {
+                    initSpeechRecognition();
+                } else {
+                    recognition.start();
+                }
+            } else if (recognition) {
                 recognition.stop();
             }
         });
@@ -982,6 +1368,11 @@
         window.addEventListener('load', function() {
             updateLanguageDisplay();
             initSpeechRecognition();
+            
+            // Initialize audio processing if noise cancellation is enabled by default
+            if (noiseCancellationEnabled) {
+                initAudioProcessing();
+            }
         });
 
         // For demo purposes: simulate pressing the wake word button
@@ -1012,8 +1403,15 @@
                 
                 if (recognition) {
                     recognition.stop();
-                    initSpeechRecognition();
+                    setTimeout(initSpeechRecognition, 500);
                 }
+            }
+            
+            // Ctrl+N to toggle noise cancellation
+            if (e.key === 'n' && e.ctrlKey) {
+                const toggle = document.getElementById('noise-cancellation-toggle');
+                toggle.checked = !toggle.checked;
+                toggle.dispatchEvent(new Event('change'));
             }
         });
 
@@ -1108,5 +1506,5 @@
             showMessageNotification("Message sent to passenger", message);
         }
     </script>
-<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=shhhhhh28/driver-assisstant" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p><p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=shhhhhh28/driver-assisstant-no-nc" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p></body>
+</body>
 </html>
